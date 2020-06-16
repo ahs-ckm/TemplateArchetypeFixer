@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"aqwari.net/xml/xmltree"
@@ -27,7 +28,8 @@ import (
 func main() {
 
 	argsWithoutProg := os.Args[1:]
-
+	var numberFilesRead = 0
+	//var numberFilesWritten = 0
 	if len(argsWithoutProg) > 0 {
 		fmt.Println(argsWithoutProg)
 		fmt.Println("Starting as a job....")
@@ -36,9 +38,50 @@ func main() {
 		output_folder := argsWithoutProg[1]
 
 		log.Println("working on " + template_path)
+		log.Println("output folder= " + output_folder)
 
-		removeSurplusArchetypes(template_path, output_folder)
+		//Check if this is a single template file or a folder
+		if strings.HasSuffix(strings.ToUpper(template_path), ".OET") {
+			log.Println("\r\n\r\n" + "This is a single template file\r\n")
+			//For a single file
+			removeSurplusArchetypes(template_path, output_folder)
+		} else {
+			log.Println("\r\n\r\n" + "Going to look for templates in " + template_path + " \r\n")
+			/*** START **/
+			var err = filepath.Walk(template_path,
+				func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					//fmt.Println("Recursive File="+path, info.Size())
+					if fi, err := os.Stat(path); err == nil {
+						if fi.Mode().IsDir() {
+							//fmt.Println("Is a Directory")
+						} else if strings.HasSuffix(strings.ToUpper(""+path), ".OET") {
+							//fmt.Println("filename=" + fi.Name())
+							//var fullpath = template_path + "\\" + path
+							numberFilesRead++
+							fmt.Println("Examining " + path)
+							var outputFile = output_folder
+							// + fi.Name()
+							fmt.Println("Output Path = " + outputFile)
+							removeSurplusArchetypes(path, outputFile)
+						}
+					}
+
+					//fmt.Println("Is Directory=" + IsDirectory(path))
+					return nil
+				})
+			if err != nil {
+				log.Println(err)
+			}
+
+			/*** END **/
+		}
+
 	}
+	fmt.Println("# Files Read = " + strconv.Itoa(numberFilesRead))
+
 	fmt.Println("Exiting.")
 }
 
@@ -55,6 +98,7 @@ func removeSurplus(path string, surplus *[]string, output_folder string) []strin
 //func getSurplusArchetypes(path string, surplus *[]string) string {
 func removeSurplusArchetypes(path string, newfolder string) bool {
 
+	log.Println(" Removing surplus archetypes for = " + path)
 	doc := etree.NewDocument()
 	if err := doc.ReadFromFile(path); err != nil {
 		return false
@@ -109,6 +153,6 @@ func removeSurplusArchetypes(path string, newfolder string) bool {
 	file := filepath.Base(path)
 	newfile := newfolder + "" + file
 	doc.WriteToFile(newfile)
-	log.Println( "writing new " + newfile)
+	log.Println("writing new " + newfile)
 	return true
 }
